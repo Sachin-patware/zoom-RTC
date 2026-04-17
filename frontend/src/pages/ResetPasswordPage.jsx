@@ -1,16 +1,52 @@
-import { useMemo, useState } from "react";
-import { ArrowRight, Lock } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowRight, LoaderCircle, Lock } from "lucide-react";
 import toast from "react-hot-toast";
-import { Link, useSearchParams } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import AuthScaffold from "../components/AuthScaffold";
+import AuthField from "../components/AuthField";
 import { apiRequest } from "../lib/api";
+import { validateConfirmPassword, validatePassword } from "../lib/authValidation";
+import { advanceOnEnter } from "../lib/formNavigation";
 
 export default function ResetPasswordPage() {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const token = useMemo(() => searchParams.get("token") || "", [searchParams]);
+  const passwordRef = useRef(null);
+  const confirmPasswordRef = useRef(null);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState("");
+  const [touched, setTouched] = useState({
+    password: false,
+    confirmPassword: false
+  });
+
+  const errors = useMemo(
+    () => ({
+      password: validatePassword(password),
+      confirmPassword: validateConfirmPassword(password, confirmPassword)
+    }),
+    [password, confirmPassword]
+  );
+  const isFormValid = token && !errors.password && !errors.confirmPassword;
+
+  useEffect(() => {
+    if (!successMessage) {
+      return undefined;
+    }
+
+    const timer = window.setTimeout(() => {
+      navigate("/login", { replace: true });
+    }, 2400);
+
+    return () => window.clearTimeout(timer);
+  }, [navigate, successMessage]);
+
+  const markTouched = (field) => {
+    setTouched((current) => ({ ...current, [field]: true }));
+  };
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -20,13 +56,9 @@ export default function ResetPasswordPage() {
       return;
     }
 
-    if (password.length < 6) {
-      toast.error("Password must be at least 6 characters.");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      toast.error("Passwords do not match.");
+    if (!isFormValid) {
+      setTouched({ password: true, confirmPassword: true });
+      toast.error("Please fix the highlighted fields.");
       return;
     }
 
@@ -36,6 +68,7 @@ export default function ResetPasswordPage() {
         method: "POST",
         body: { token, password }
       });
+      setSuccessMessage(data.message || "Password reset successfully.");
       toast.success(data.message || "Password reset successfully.");
     } catch (requestError) {
       toast.error(requestError.message || "Unable to reset password.");
@@ -58,45 +91,47 @@ export default function ResetPasswordPage() {
       }
     >
       <form onSubmit={handleSubmit} className="auth-panel space-y-4">
-        <label className="block">
-          <span className="mb-2 block text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
-            New password
-          </span>
-          <div className="relative">
-            <div className="auth-icon">
-              <Lock size={18} />
-            </div>
-            <input
-              type="password"
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="At least 6 characters"
-              className="input-shell pl-[4.5rem]"
-            />
-          </div>
-        </label>
+        <AuthField
+          ref={passwordRef}
+          label="New password"
+          type="password"
+          value={password}
+          onChange={(event) => setPassword(event.target.value)}
+          onBlur={() => markTouched("password")}
+          onKeyDown={(event) => advanceOnEnter(event, confirmPasswordRef)}
+          placeholder="At least 6 characters"
+          autoComplete="new-password"
+          icon={<Lock size={18} />}
+          error={touched.password ? errors.password : ""}
+        />
 
-        <label className="block">
-          <span className="mb-2 block text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
-            Confirm password
-          </span>
-          <div className="relative">
-            <div className="auth-icon">
-              <Lock size={18} />
-            </div>
-            <input
-              type="password"
-              value={confirmPassword}
-              onChange={(event) => setConfirmPassword(event.target.value)}
-              placeholder="Repeat your password"
-              className="input-shell pl-[4.5rem]"
-            />
-          </div>
-        </label>
+        <AuthField
+          ref={confirmPasswordRef}
+          label="Confirm password"
+          type="password"
+          value={confirmPassword}
+          onChange={(event) => setConfirmPassword(event.target.value)}
+          onBlur={() => markTouched("confirmPassword")}
+          placeholder="Repeat your password"
+          autoComplete="new-password"
+          icon={<Lock size={18} />}
+          error={touched.confirmPassword ? errors.confirmPassword : ""}
+        />
 
-        <button type="submit" disabled={loading} className="brand-button w-full">
-          {loading ? "Updating..." : "Update password"}
-          <ArrowRight size={18} />
+        {successMessage ? <div className="auth-success">{successMessage} Redirecting to login...</div> : null}
+
+        <button type="submit" disabled={loading || !isFormValid || Boolean(successMessage)} className="brand-button w-full">
+          {loading ? (
+            <>
+              <LoaderCircle size={18} className="animate-spin" />
+              Updating...
+            </>
+          ) : (
+            <>
+              Update password
+              <ArrowRight size={18} />
+            </>
+          )}
         </button>
       </form>
     </AuthScaffold>

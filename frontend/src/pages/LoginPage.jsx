@@ -1,22 +1,45 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { GoogleLogin } from "@react-oauth/google";
-import { ArrowRight, Lock, Mail } from "lucide-react";
+import { ArrowRight, LoaderCircle, Lock, Mail } from "lucide-react";
 import toast from "react-hot-toast";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import AuthScaffold from "../components/AuthScaffold";
+import AuthField from "../components/AuthField";
 import { apiRequest } from "../lib/api";
 import { useAuth } from "../context/AuthContext";
+import { advanceOnEnter } from "../lib/formNavigation";
+import {
+  clearPendingVerification,
+  setPendingVerification
+} from "../lib/pendingVerification";
+import { validateEmail, validatePassword } from "../lib/authValidation";
 
 export default function LoginPage() {
   const { login, isAuthenticated } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const from = location.state?.from?.pathname || "/dashboard";
+  const verifiedEmail = location.state?.verifiedEmail || "";
+  const emailRef = useRef(null);
+  const passwordRef = useRef(null);
 
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(verifiedEmail);
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [googleWidth, setGoogleWidth] = useState("360");
+  const [touched, setTouched] = useState({
+    email: Boolean(verifiedEmail),
+    password: false
+  });
+
+  const errors = useMemo(
+    () => ({
+      email: validateEmail(email),
+      password: validatePassword(password)
+    }),
+    [email, password]
+  );
+  const isFormValid = !errors.email && !errors.password;
 
   useEffect(() => {
     if (isAuthenticated) {
@@ -35,28 +58,37 @@ export default function LoginPage() {
     return () => window.removeEventListener("resize", updateWidth);
   }, []);
 
+  const markTouched = (field) => {
+    setTouched((current) => ({ ...current, [field]: true }));
+  };
+
   const handleSubmit = async (event) => {
     event.preventDefault();
 
-    if (!email.trim() || !password.trim()) {
-      toast.error("Email and password are required.");
+    if (!isFormValid) {
+      setTouched({ email: true, password: true });
+      toast.error("Please fix the highlighted fields.");
       return;
     }
+
+    const normalizedEmail = email.trim();
 
     try {
       setLoading(true);
       const data = await apiRequest("/auth/login", {
         method: "POST",
-        body: { email, password }
+        body: { email: normalizedEmail, password }
       });
 
+      clearPendingVerification();
       login(data.user, data.accessToken, data.refreshToken);
       toast.success("Logged in successfully.");
       navigate(from, { replace: true });
     } catch (requestError) {
       if (requestError.data?.code === "EMAIL_NOT_VERIFIED") {
+        setPendingVerification({ email: normalizedEmail, password });
         toast("Please verify your email first.");
-        navigate(`/verify-otp?email=${encodeURIComponent(email)}`);
+        navigate(`/verify-otp?email=${encodeURIComponent(normalizedEmail)}`);
         return;
       }
 
@@ -75,6 +107,7 @@ export default function LoginPage() {
         body: { credential: credentialResponse.credential }
       });
 
+      clearPendingVerification();
       login(data.user, data.accessToken, data.refreshToken);
       toast.success("Logged in with Google.");
       navigate(from, { replace: true });
@@ -117,50 +150,50 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit} className="auth-panel space-y-4">
-          <label className="block">
-            <span className="mb-2 block text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
-              Email address
-            </span>
-            <div className="relative">
-              <div className="auth-icon">
-                <Mail size={18} />
-              </div>
-              <input
-                type="email"
-                value={email}
-                onChange={(event) => setEmail(event.target.value)}
-                placeholder="you@example.com"
-                className="input-shell pl-[4.5rem]"
-              />
-            </div>
-          </label>
+          <AuthField
+            ref={emailRef}
+            label="Email address"
+            type="email"
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            onBlur={() => markTouched("email")}
+            onKeyDown={(event) => advanceOnEnter(event, passwordRef)}
+            placeholder="you@example.com"
+            autoComplete="email"
+            icon={<Mail size={18} />}
+            error={touched.email ? errors.email : ""}
+          />
 
-          <label className="block">
-            <div className="mb-2 flex items-center justify-between">
-              <span className="text-[11px] font-bold uppercase tracking-[0.22em] text-slate-400">
-                Password
-              </span>
+          <AuthField
+            ref={passwordRef}
+            label="Password"
+            type="password"
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            onBlur={() => markTouched("password")}
+            placeholder="Enter your password"
+            autoComplete="current-password"
+            icon={<Lock size={18} />}
+            error={touched.password ? errors.password : ""}
+            rightLabel={
               <Link to="/forgot-password" className="text-xs font-semibold text-indigo-300 hover:text-indigo-200">
                 Forgot Password?
               </Link>
-            </div>
-            <div className="relative">
-              <div className="auth-icon">
-                <Lock size={18} />
-              </div>
-              <input
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                placeholder="Enter your password"
-                className="input-shell pl-[4.5rem]"
-              />
-            </div>
-          </label>
+            }
+          />
 
-          <button type="submit" disabled={loading} className="brand-button w-full">
-            {loading ? "Signing in..." : "Login"}
-            <ArrowRight size={18} />
+          <button type="submit" disabled={loading || !isFormValid} className="brand-button w-full">
+            {loading ? (
+              <>
+                <LoaderCircle size={18} className="animate-spin" />
+                Signing in...
+              </>
+            ) : (
+              <>
+                Login
+                <ArrowRight size={18} />
+              </>
+            )}
           </button>
         </form>
       </div>

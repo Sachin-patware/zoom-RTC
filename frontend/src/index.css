@@ -71,3 +71,44 @@ input {
 .auth-icon {
   @apply pointer-events-none absolute left-3 top-1/2 flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-500;
 }
+
+.auth-field {
+  @apply flex items-center gap-3 rounded-[22px] border border-white/10 bg-[#0b1323] px-3 py-2.5 shadow-[inset_0_1px_0_rgba(255,255,255,0.03)] transition duration-200 focus-within:border-indigo-400/50 focus-within:bg-[#0d172a] focus-within:ring-4 focus-within:ring-indigo-500/10;
+}
+
+.auth-field-error {
+  @apply border-rose-400/40 bg-rose-500/[0.04] ring-4 ring-rose-500/10;
+}
+
+.auth-field-icon {
+  @apply flex h-10 w-10 flex-none items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] text-slate-500;
+}
+
+.auth-field-icon-error {
+  @apply border-rose-400/20 bg-rose-500/10 text-rose-200;
+}
+
+.auth-field-input {
+  @apply w-full border-0 bg-transparent py-1.5 text-[15px] text-white outline-none placeholder:text-slate-500;
+}
+
+.auth-error {
+  @apply mt-2 text-sm text-rose-300;
+}
+
+.auth-hint {
+  @apply mt-2 text-sm text-slate-500;
+}
+
+.auth-success {
+  @apply rounded-2xl border border-emerald-400/20 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-200;
+}
+
+.auth-field-input:-webkit-autofill,
+.auth-field-input:-webkit-autofill:hover,
+.auth-field-input:-webkit-autofill:focus,
+.auth-field-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #f8fafc;
+  box-shadow: 0 0 0 1000px #0b1323 inset;
+  transition: background-color 9999s ease-in-out 0s;
+}
