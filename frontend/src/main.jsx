@@ -1,3 +1,4 @@
+import "./polyfills";
 import React from "react";
 import ReactDOM from "react-dom/client";
 import { GoogleOAuthProvider } from "@react-oauth/google";
@@ -5,17 +6,18 @@ import { BrowserRouter } from "react-router-dom";
 import { Toaster } from "react-hot-toast";
 import App from "./App";
 import { AuthProvider } from "./context/AuthContext";
+import { SocketProvider } from "./context/SocketContext";
 import "./index.css";
 
 const googleClientId = import.meta.env.VITE_GOOGLE_CLIENT_ID || "";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
-  <React.StrictMode>
     <GoogleOAuthProvider clientId={googleClientId}>
       <BrowserRouter>
         <AuthProvider>
-          <App />
-          <Toaster
+          <SocketProvider>
+            <App />
+            <Toaster
             position="top-right"
             toastOptions={{
               duration: 3500,
@@ -28,9 +30,9 @@ ReactDOM.createRoot(document.getElementById("root")).render(
                 backdropFilter: "blur(14px)"
               }
             }}
-          />
+            />
+          </SocketProvider>
         </AuthProvider>
       </BrowserRouter>
     </GoogleOAuthProvider>
-  </React.StrictMode>
 );

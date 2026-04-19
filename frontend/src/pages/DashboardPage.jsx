@@ -61,10 +61,16 @@ export default function DashboardPage() {
       // Copy support depends on browser permissions; the meeting ID is still created.
     }
     toast.success(`Meeting ID copied: ${nextRoomId}`);
+    navigate(`/room/${nextRoomId}`);
   };
 
   const handleJoinMeeting = () => {
-    const normalized = roomId.trim();
+    let normalized = roomId.trim();
+
+    // If a full URL was pasted, extract only the room ID (e.g. from http://localhost:5174/room/XYZ -> XYZ)
+    if (normalized.includes("/room/")) {
+      normalized = normalized.split("/room/").pop();
+    }
 
     if (!normalized) {
       toast.error("Enter a room ID first.");
@@ -72,7 +78,8 @@ export default function DashboardPage() {
     }
 
     saveMeeting(normalized, "Joined meeting room");
-    toast.success(`Meeting ready: ${normalized}`);
+    toast.success(`Joining room: ${normalized}`);
+    navigate(`/room/${normalized}`);
     setRoomId("");
   };
 

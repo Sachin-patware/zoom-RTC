@@ -13,9 +13,7 @@ const httpServer = createServer(app);
 
 // ─── Middleware ────────────────────────────────────
 app.use(cors({
-    origin: function (origin, callback) {
-        callback(null, true);
-    },
+    origin: process.env.FRONTEND_URL || "http://localhost:5174",
     credentials: true
 }));
 app.use(express.json());

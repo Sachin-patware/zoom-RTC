@@ -6,6 +6,7 @@ import ForgotPasswordPage from "./pages/ForgotPasswordPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import VerifyOtpPage from "./pages/VerifyOtpPage";
 import DashboardPage from "./pages/DashboardPage";
+import RoomPage from "./pages/RoomPage";
 import ProtectedRoute from "./components/ProtectedRoute";
 
 export default function App() {
@@ -20,6 +21,7 @@ export default function App() {
 
       <Route element={<ProtectedRoute />}>
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/room/:roomId" element={<RoomPage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/" replace />} />
