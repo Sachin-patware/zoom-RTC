@@ -31,8 +31,7 @@ export default function VideoGrid({ localStream, peers, userVideoRef, isMuted, l
       {peers.map((peerObj) => (
         <RemoteVideo 
           key={peerObj.peerId} 
-          peer={peerObj.peer} 
-          peerId={peerObj.peerId} 
+          stream={peerObj.stream} 
           name={peerObj.name} 
         />
       ))}
@@ -40,16 +39,14 @@ export default function VideoGrid({ localStream, peers, userVideoRef, isMuted, l
   );
 }
 
-function RemoteVideo({ peer, peerId, name }) {
+function RemoteVideo({ stream, name }) {
   const ref = useRef();
 
   useEffect(() => {
-    peer.on("stream", (stream) => {
-      if (ref.current) {
-        ref.current.srcObject = stream;
-      }
-    });
-  }, [peer]);
+    if (ref.current && stream) {
+      ref.current.srcObject = stream;
+    }
+  }, [stream]);
 
   return (
     <div className="relative overflow-hidden rounded-[24px] border border-white/10 bg-ink-900 shadow-2xl">

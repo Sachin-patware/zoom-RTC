@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useSocket } from "../context/SocketContext";
 import { useAuth } from "../context/AuthContext";
-import Peer from "simple-peer";
 import {
   Mic,
   MicOff,
@@ -59,29 +58,41 @@ export default function RoomPage() {
         socket.emit("join-call", roomId, user?.name);
 
         // When I join, I get the list of everyone else already there
-        socket.on("all-users", (users, currentHostId) => {
+        socket.on("all-users", async (users, currentHostId) => {
           console.log("Existing users in room to connect with:", users);
           setHostId(currentHostId);
           const newPeers = [];
-          users.forEach((userData) => {
-            const peer = createPeer(userData.id, socket.id, localStream);
+          
+          for (const userData of users) {
+            const pc = createPeerConnection(userData.id, localStream);
             newPeers.push({
               peerId: userData.id,
               name: userData.name,
               isHost: userData.isHost,
-              peer
+              pc,
+              stream: null
             });
-          });
+          }
           peersRef.current = newPeers;
-          setPeers(newPeers);
+          setPeers(newPeers.map(p => ({ ...p, pc: undefined }))); // Avoid setting PC in React state
+
+          // Create an offer for everyone in the room
+          for (const peerObj of peersRef.current) {
+            try {
+              const offer = await peerObj.pc.createOffer();
+              await peerObj.pc.setLocalDescription(offer);
+              socket.emit("offer", peerObj.peerId, offer);
+            } catch (err) {
+              console.error("Error creating offer for", peerObj.peerId, err);
+            }
+          }
         });
 
         // When someone ELSE joins after me, they will call me.
-        // I just need to be ready to receive their signal.
         socket.on("user-joined", (userData) => {
           console.log("New user joined:", userData.id);
           toast(`${userData.name} joined the meeting`);
-          // We don't initiate here; the joiner will initiate.
+          // We wait for their "offer" emitted from their all-users flow
         });
 
         socket.on("new-host", (newHostId) => {
@@ -92,23 +103,54 @@ export default function RoomPage() {
           }
         });
 
-        socket.on("signal", (callerId, signal) => {
-          console.log("Processing signal from:", callerId);
-          const item = peersRef.current.find((p) => p.peerId === callerId);
-          if (item) {
-            item.peer.signal(signal);
-          } else {
-            // New incoming connection from a new joiner
-            console.log("Adding new peer from signal:", callerId);
-            const peer = addPeer(signal, callerId, localStream);
-            const newPeerObj = {
+        // WebRTC Signaling Listeners
+        socket.on("offer", async (callerId, offer) => {
+          console.log("Received offer from:", callerId);
+          let peerObj = peersRef.current.find((p) => p.peerId === callerId);
+          
+          if (!peerObj) {
+            const pc = createPeerConnection(callerId, localStream);
+            peerObj = {
               peerId: callerId,
-              name: "Guest", // Will be properly synced via backend
-              isHost: false, // New joiners are never hosts initially
-              peer
+              name: "Guest", // You can sync actual names via a separate metadata event later
+              isHost: false,
+              pc,
+              stream: null
             };
-            peersRef.current.push(newPeerObj);
-            setPeers([...peersRef.current]);
+            peersRef.current.push(peerObj);
+            setPeers(prev => [...prev, { peerId: callerId, name: "Guest", isHost: false, stream: null }]);
+          }
+
+          try {
+            await peerObj.pc.setRemoteDescription(new RTCSessionDescription(offer));
+            const answer = await peerObj.pc.createAnswer();
+            await peerObj.pc.setLocalDescription(answer);
+            socket.emit("answer", callerId, answer);
+          } catch (err) {
+            console.error("Error handling offer:", err);
+          }
+        });
+
+        socket.on("answer", async (callerId, answer) => {
+          console.log("Received answer from:", callerId);
+          const peerObj = peersRef.current.find((p) => p.peerId === callerId);
+          if (peerObj) {
+            try {
+              await peerObj.pc.setRemoteDescription(new RTCSessionDescription(answer));
+            } catch (err) {
+              console.error("Error setting remote description from answer:", err);
+            }
+          }
+        });
+
+        socket.on("ice-candidate", async (callerId, candidate) => {
+          const peerObj = peersRef.current.find((p) => p.peerId === callerId);
+          if (peerObj && candidate) {
+            try {
+              await peerObj.pc.addIceCandidate(new RTCIceCandidate(candidate));
+            } catch (err) {
+              console.error("Error adding ice candidate:", err);
+            }
           }
         });
 
@@ -123,8 +165,8 @@ export default function RoomPage() {
         socket.on("user-left", (userId) => {
           console.log("User left:", userId);
           const peerObj = peersRef.current.find((p) => p.peerId === userId);
-          if (peerObj) {
-            peerObj.peer.destroy();
+          if (peerObj && peerObj.pc) {
+            peerObj.pc.close();
           }
           peersRef.current = peersRef.current.filter((p) => p.peerId !== userId);
           setPeers([...peersRef.current]);
@@ -140,8 +182,8 @@ export default function RoomPage() {
     return () => {
       // 1. Destroy all WebRTC peer connections
       peersRef.current.forEach((peerObj) => {
-        if (peerObj.peer) {
-            peerObj.peer.destroy();
+        if (peerObj.pc) {
+            peerObj.pc.close();
         }
       });
       peersRef.current = [];
@@ -156,54 +198,44 @@ export default function RoomPage() {
       // 3. Remove socket listeners
       socket.off("all-users");
       socket.off("user-joined");
-      socket.off("signal");
+      socket.off("offer");
+      socket.off("answer");
+      socket.off("ice-candidate");
       socket.off("chat-message");
       socket.off("message-history");
       socket.off("user-left");
     };
   }, [socket, roomId]);
 
-  function createPeer(userToSignal, callerId, stream) {
-    const peer = new Peer({
-      initiator: true,
-      trickle: true,
-      stream,
-      config: {
+  const createPeerConnection = (targetId, localStream) => {
+    const pc = new RTCPeerConnection({
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
           { urls: "stun:global.stun.twilio.com:3478" }
         ]
+    });
+
+    // Add local tracks
+    if (localStream) {
+      localStream.getTracks().forEach((track) => pc.addTrack(track, localStream));
+    }
+
+    pc.onicecandidate = (event) => {
+      if (event.candidate) {
+        socket.emit("ice-candidate", targetId, event.candidate);
       }
-    });
+    };
 
-    peer.on("signal", (signal) => {
-      socket.emit("signal", userToSignal, signal);
-    });
+    pc.ontrack = (event) => {
+      console.log("Received remote track from:", targetId);
+      const [remoteStream] = event.streams;
+      setPeers((prev) => 
+        prev.map((p) => p.peerId === targetId ? { ...p, stream: remoteStream } : p)
+      );
+    };
 
-    return peer;
-  }
-
-  function addPeer(incomingSignal, callerId, stream) {
-    const peer = new Peer({
-      initiator: false,
-      trickle: true,
-      stream,
-      config: {
-        iceServers: [
-          { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:global.stun.twilio.com:3478" }
-        ]
-      }
-    });
-
-    peer.on("signal", (signal) => {
-      socket.emit("signal", callerId, signal);
-    });
-
-    peer.signal(incomingSignal);
-
-    return peer;
-  }
+    return pc;
+  };
 
   const toggleMute = () => {
     if (stream) {

@@ -85,8 +85,17 @@ export const initializeSocket = (server) => {
             }
         });
 
-        socket.on("signal", (toId, message) => {
-            io.to(toId).emit("signal", socket.id, message);
+        // WebRTC Signaling Events
+        socket.on("offer", (toId, offer) => {
+            io.to(toId).emit("offer", socket.id, offer);
+        });
+
+        socket.on("answer", (toId, answer) => {
+            io.to(toId).emit("answer", socket.id, answer);
+        });
+
+        socket.on("ice-candidate", (toId, candidate) => {
+            io.to(toId).emit("ice-candidate", socket.id, candidate);
         });
 
         socket.on("chat-message", (data, sender) => {
