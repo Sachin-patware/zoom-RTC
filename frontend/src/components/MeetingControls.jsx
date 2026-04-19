@@ -6,7 +6,8 @@ import {
   PhoneOff,
   MessageSquare,
   Users,
-  Settings
+  Settings,
+  Monitor
 } from "lucide-react";
 
 export default function MeetingControls({
@@ -18,7 +19,9 @@ export default function MeetingControls({
   onToggleChat,
   isChatOpen,
   onToggleParticipants,
-  isParticipantsOpen
+  isParticipantsOpen,
+  onToggleScreenShare,
+  isSharingScreen
 }) {
   return (
     <div className="flex h-24 items-center justify-center gap-4 bg-ink-950/80 px-6 backdrop-blur-xl border-t border-white/5">
@@ -34,6 +37,12 @@ export default function MeetingControls({
           active={!isVideoOff}
           icon={isVideoOff ? <VideoOff size={22} className="text-rose-400" /> : <Video size={22} />}
           tooltip={isVideoOff ? "Start Video" : "Stop Video"}
+        />
+        <ControlButton
+          onClick={onToggleScreenShare}
+          active={isSharingScreen}
+          icon={<Monitor size={22} className={isSharingScreen ? "text-indigo-400" : ""} />}
+          tooltip={isSharingScreen ? "Stop Screen" : "Share Screen"}
         />
       </div>
 

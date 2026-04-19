@@ -6,6 +6,7 @@ dotenv.config();
 
 import connectDB from "./config/db.js";
 import authRoutes from "./Routes/auth.js";
+import meetingRoutes from "./Routes/meeting.js";
 import { initializeSocket } from "./controllers/socketManager.js";
 
 const app = express();
@@ -24,6 +25,7 @@ const io = initializeSocket(httpServer);
 
 // ─── Routes ───────────────────────────────────────
 app.use("/api/auth", authRoutes);
+app.use("/api/meetings", meetingRoutes);
 
 app.get("/", (req, res) => {
     res.json({ message: "ZoomRTC API is running", version: "2.0.0" });

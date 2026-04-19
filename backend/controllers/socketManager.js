@@ -98,6 +98,14 @@ export const initializeSocket = (server) => {
             io.to(toId).emit("ice-candidate", socket.id, candidate);
         });
 
+        socket.on("screen-share-started", (path) => {
+            socket.to(path).emit("screen-share-started", socket.id);
+        });
+
+        socket.on("screen-share-stopped", (path) => {
+            socket.to(path).emit("screen-share-stopped", socket.id);
+        });
+
         socket.on("chat-message", (data, sender) => {
             const { path, message } = data;
             if (!path) return;
@@ -124,30 +132,49 @@ export const initializeSocket = (server) => {
             io.to(path).emit("chat-message", messageData.message, messageData.sender);
         });
 
+        const handleRoomLeave = (roomId) => {
+            if (!roomId) return;
+
+            console.log(`User ${socket.id} leaving room: ${roomId}`);
+
+            const users = roomUsers.get(roomId);
+            if (users) {
+                users.delete(socket.id);
+
+                if (users.size === 0) {
+                    roomUsers.delete(roomId);
+                    roomHosts.delete(roomId);
+                } else if (roomHosts.get(roomId) === socket.id) {
+                    // Reassign host
+                    const newHost = Array.from(users)[0];
+                    roomHosts.set(roomId, newHost);
+                    io.to(roomId).emit("new-host", newHost);
+                }
+            }
+
+            // Remove from native socket room
+            socket.leave(roomId);
+
+            // Notify everyone (including self if still connected)
+            io.to(roomId).emit("user-left", socket.id);
+        };
+
+        socket.on("leave-call", (roomId) => {
+            handleRoomLeave(roomId);
+        });
+
         // Use 'disconnecting' to know which rooms the user was in before they leave
         socket.on("disconnecting", () => {
-            const path = socketToRoom.get(socket.id);
-            if (path) {
-                console.log(`User ${socket.id} leaving room: ${path}`);
-                
-                // Remove from room tracking
-                const users = roomUsers.get(path);
-                if (users) {
-                    users.delete(socket.id);
-                    if (users.size === 0) {
-                        roomUsers.delete(path);
-                        roomHosts.delete(path);
-                    } else if (roomHosts.get(path) === socket.id) {
-                        // If host leaves, assign random new host
-                        const newHost = Array.from(users)[0];
-                        roomHosts.set(path, newHost);
-                        io.to(path).emit("new-host", newHost); // Optional: notify room of new host
-                    }
+            const rooms = Array.from(socket.rooms);
+            
+            rooms.forEach((roomId) => {
+                if (roomId !== socket.id) { // socket.rooms always includes the socket.id itself
+                    handleRoomLeave(roomId);
                 }
+            });
 
-                socket.to(path).emit("user-left", socket.id);
-                socketToRoom.delete(socket.id);
-            }
+            // Global metadata cleanup
+            socketToRoom.delete(socket.id);
             socketToName.delete(socket.id);
             timeOnline.delete(socket.id);
         });

@@ -34,16 +34,23 @@ export default function RoomPage() {
   const [isParticipantsOpen, setIsParticipantsOpen] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isVideoOff, setIsVideoOff] = useState(false);
+  const [isSharingScreen, setIsSharingScreen] = useState(false);
   const [hostId, setHostId] = useState(null);
 
   const peersRef = useRef([]); // To keep track of peer objects
   const userVideo = useRef();
   const streamRef = useRef(null); // Keep a ref to the stream for reliable cleanup
+  const screenStreamRef = useRef(null);
 
   useEffect(() => {
     if (!socket) return;
 
     const startCall = async () => {
+      // Connect specifically when entering the room
+      if (socket && !socket.connected) {
+        socket.connect();
+      }
+
       try {
         const localStream = await navigator.mediaDevices.getUserMedia({
           video: true,
@@ -59,31 +66,41 @@ export default function RoomPage() {
 
         // When I join, I get the list of everyone else already there
         socket.on("all-users", async (users, currentHostId) => {
-          console.log("Existing users in room to connect with:", users);
+          console.log("Existing users in room:", users);
           setHostId(currentHostId);
           const newPeers = [];
           
           for (const userData of users) {
-            const pc = createPeerConnection(userData.id, localStream);
-            newPeers.push({
-              peerId: userData.id,
-              name: userData.name,
-              isHost: userData.isHost,
-              pc,
-              stream: null
-            });
+             // Create PC for each existing user
+             const pc = createPeerConnection(userData.id, localStream, userData.name);
+             const peerObj = {
+               peerId: userData.id,
+               name: userData.name,
+               isHost: userData.isHost,
+               pc,
+               stream: null,
+               candidateQueue: [],
+               isRemoteDescriptionSet: false
+             };
+             newPeers.push(peerObj);
           }
+          
           peersRef.current = newPeers;
-          setPeers(newPeers.map(p => ({ ...p, pc: undefined }))); // Avoid setting PC in React state
+          setPeers(newPeers.map(p => ({ 
+            peerId: p.peerId, 
+            name: p.name, 
+            isHost: p.isHost, 
+            stream: null 
+          })));
 
-          // Create an offer for everyone in the room
+          // Now create offers for everyone
           for (const peerObj of peersRef.current) {
             try {
               const offer = await peerObj.pc.createOffer();
               await peerObj.pc.setLocalDescription(offer);
-              socket.emit("offer", peerObj.peerId, offer);
+              socket.emit("offer", peerObj.peerId, { offer, name: user?.name });
             } catch (err) {
-              console.error("Error creating offer for", peerObj.peerId, err);
+              console.error("Error creating offer:", err);
             }
           }
         });
@@ -91,52 +108,81 @@ export default function RoomPage() {
         // When someone ELSE joins after me, they will call me.
         socket.on("user-joined", (userData) => {
           console.log("New user joined:", userData.id);
-          toast(`${userData.name} joined the meeting`);
-          // We wait for their "offer" emitted from their all-users flow
+          
+          if (socket.id === hostId) {
+            toast.success(`${userData.name} joined. You are the Host.`, {
+              icon: "👑",
+              duration: 4000
+            });
+          } else {
+            toast(`${userData.name} joined the meeting`);
+          }
         });
 
         socket.on("new-host", (newHostId) => {
           setHostId(newHostId);
           setPeers(prev => prev.map(p => ({ ...p, isHost: p.peerId === newHostId })));
           if (socket.id === newHostId) {
-             toast("You are now the host!");
+             toast("You are now the host!", { icon: "👑" });
           }
         });
 
         // WebRTC Signaling Listeners
-        socket.on("offer", async (callerId, offer) => {
-          console.log("Received offer from:", callerId);
+        socket.on("offer", async (callerId, { offer, name }) => {
+          console.log("Received offer from:", name || callerId);
           let peerObj = peersRef.current.find((p) => p.peerId === callerId);
           
           if (!peerObj) {
-            const pc = createPeerConnection(callerId, localStream);
+            const pc = createPeerConnection(callerId, localStream, name);
             peerObj = {
               peerId: callerId,
-              name: "Guest", // You can sync actual names via a separate metadata event later
+              name: name || "Guest",
               isHost: false,
               pc,
-              stream: null
+              stream: null,
+              candidateQueue: [],
+              isRemoteDescriptionSet: false
             };
             peersRef.current.push(peerObj);
-            setPeers(prev => [...prev, { peerId: callerId, name: "Guest", isHost: false, stream: null }]);
+            setPeers(prev => [...prev, { 
+              peerId: callerId, 
+              name: name || "Guest", 
+              isHost: false, 
+              stream: null 
+            }]);
           }
 
           try {
             await peerObj.pc.setRemoteDescription(new RTCSessionDescription(offer));
+            peerObj.isRemoteDescriptionSet = true;
+            
+            // Process queued candidates
+            while (peerObj.candidateQueue.length > 0) {
+              const candidate = peerObj.candidateQueue.shift();
+              await peerObj.pc.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+
             const answer = await peerObj.pc.createAnswer();
             await peerObj.pc.setLocalDescription(answer);
-            socket.emit("answer", callerId, answer);
+            socket.emit("answer", callerId, { answer, name: user?.name });
           } catch (err) {
             console.error("Error handling offer:", err);
           }
         });
 
-        socket.on("answer", async (callerId, answer) => {
-          console.log("Received answer from:", callerId);
+        socket.on("answer", async (callerId, { answer, name }) => {
+          console.log("Received answer from:", name || callerId);
           const peerObj = peersRef.current.find((p) => p.peerId === callerId);
           if (peerObj) {
             try {
               await peerObj.pc.setRemoteDescription(new RTCSessionDescription(answer));
+              peerObj.isRemoteDescriptionSet = true;
+              
+              // Process queued candidates
+              while (peerObj.candidateQueue.length > 0) {
+                const candidate = peerObj.candidateQueue.shift();
+                await peerObj.pc.addIceCandidate(new RTCIceCandidate(candidate));
+              }
             } catch (err) {
               console.error("Error setting remote description from answer:", err);
             }
@@ -147,9 +193,13 @@ export default function RoomPage() {
           const peerObj = peersRef.current.find((p) => p.peerId === callerId);
           if (peerObj && candidate) {
             try {
-              await peerObj.pc.addIceCandidate(new RTCIceCandidate(candidate));
+              if (peerObj.isRemoteDescriptionSet) {
+                await peerObj.pc.addIceCandidate(new RTCIceCandidate(candidate));
+              } else {
+                peerObj.candidateQueue.push(candidate);
+              }
             } catch (err) {
-              console.error("Error adding ice candidate:", err);
+              console.error("Error handling ice candidate:", err);
             }
           }
         });
@@ -163,13 +213,33 @@ export default function RoomPage() {
         });
 
         socket.on("user-left", (userId) => {
-          console.log("User left:", userId);
+          console.log("User left syncing:", userId);
+          
+          // Handle own cleanup if signaled (though usually handled by state/cleanup)
           const peerObj = peersRef.current.find((p) => p.peerId === userId);
-          if (peerObj && peerObj.pc) {
-            peerObj.pc.close();
+          if (peerObj) {
+            if (peerObj.pc) {
+                peerObj.pc.close();
+            }
+            toast(`${peerObj.name || "Participant"} left the room`);
           }
+          
           peersRef.current = peersRef.current.filter((p) => p.peerId !== userId);
-          setPeers([...peersRef.current]);
+          setPeers(prev => prev.filter(p => p.peerId !== userId));
+        });
+
+        socket.on("screen-share-started", (userId) => {
+          const peer = peersRef.current.find(p => p.peerId === userId);
+          if (peer) {
+            toast(`${peer.name} started sharing their screen`);
+          }
+        });
+
+        socket.on("screen-share-stopped", (userId) => {
+          const peer = peersRef.current.find(p => p.peerId === userId);
+          if (peer) {
+            toast(`${peer.name} stopped sharing their screen`);
+          }
         });
       } catch (err) {
         console.error("Failed to get media devices:", err);
@@ -179,7 +249,22 @@ export default function RoomPage() {
 
     startCall();
 
+    const handleUnload = () => {
+      socket.disconnect();
+    };
+
+    window.addEventListener("beforeunload", handleUnload);
+
     return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+      // Emit leave call and DISCONNECT immediately
+      if (socket) {
+         if (socket.connected) {
+           socket.emit("leave-call", roomId);
+         }
+         socket.disconnect();
+      }
+
       // 1. Destroy all WebRTC peer connections
       peersRef.current.forEach((peerObj) => {
         if (peerObj.pc) {
@@ -195,23 +280,92 @@ export default function RoomPage() {
         stream.getTracks().forEach((track) => track.stop());
       }
       
+      // Stop screen share if active
+      if (screenStreamRef.current) {
+        screenStreamRef.current.getTracks().forEach(track => track.stop());
+      }
+
       // 3. Remove socket listeners
       socket.off("all-users");
       socket.off("user-joined");
       socket.off("offer");
       socket.off("answer");
       socket.off("ice-candidate");
+      socket.off("screen-share-started");
+      socket.off("screen-share-stopped");
       socket.off("chat-message");
       socket.off("message-history");
       socket.off("user-left");
     };
   }, [socket, roomId]);
 
-  const createPeerConnection = (targetId, localStream) => {
+  const handleToggleScreenShare = async () => {
+    if (!isSharingScreen) {
+      try {
+        const screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+        screenStreamRef.current = screenStream;
+        const screenTrack = screenStream.getVideoTracks()[0];
+
+        // Replace track for all peers
+        replaceVideoTrackForAllPeers(screenTrack);
+
+        // Update local video
+        if (userVideo.current) {
+          userVideo.current.srcObject = screenStream;
+        }
+
+        setIsSharingScreen(true);
+        socket.emit("screen-share-started", roomId);
+
+        // Handle manual stop share (browser button)
+        screenTrack.onended = () => {
+          stopScreenShare();
+        };
+
+      } catch (err) {
+        console.error("Error sharing screen:", err);
+        toast.error("Could not share screen");
+      }
+    } else {
+      stopScreenShare();
+    }
+  };
+
+  const stopScreenShare = () => {
+    if (screenStreamRef.current) {
+      screenStreamRef.current.getTracks().forEach(track => track.stop());
+      screenStreamRef.current = null;
+    }
+
+    const videoTrack = streamRef.current.getVideoTracks()[0];
+    replaceVideoTrackForAllPeers(videoTrack);
+
+    // Revert local video
+    if (userVideo.current) {
+      userVideo.current.srcObject = streamRef.current;
+    }
+
+    setIsSharingScreen(false);
+    socket.emit("screen-share-stopped", roomId);
+  };
+
+  const replaceVideoTrackForAllPeers = (newTrack) => {
+    peersRef.current.forEach((peerObj) => {
+      if (peerObj.pc) {
+        const sender = peerObj.pc.getSenders().find((s) => s.track && s.track.kind === "video");
+        if (sender) {
+          sender.replaceTrack(newTrack);
+        }
+      }
+    });
+  };
+
+  const createPeerConnection = (targetId, localStream, targetName) => {
     const pc = new RTCPeerConnection({
         iceServers: [
           { urls: "stun:stun.l.google.com:19302" },
-          { urls: "stun:global.stun.twilio.com:3478" }
+          { urls: "stun:global.stun.twilio.com:3478" },
+          { urls: "stun:stun1.l.google.com:19302" }
         ]
     });
 
@@ -227,11 +381,19 @@ export default function RoomPage() {
     };
 
     pc.ontrack = (event) => {
-      console.log("Received remote track from:", targetId);
-      const [remoteStream] = event.streams;
+      console.log(`Received ${event.track.kind} track from:`, targetName || targetId);
+      const remoteStream = event.streams[0] || new MediaStream([event.track]);
+      
       setPeers((prev) => 
         prev.map((p) => p.peerId === targetId ? { ...p, stream: remoteStream } : p)
       );
+    };
+
+    pc.onconnectionstatechange = () => {
+      console.log(`Connection state with ${targetId}:`, pc.connectionState);
+      if (pc.connectionState === "failed") {
+         pc.restartIce();
+      }
     };
 
     return pc;
@@ -252,6 +414,10 @@ export default function RoomPage() {
   };
 
   const leaveMeeting = () => {
+    if (socket) {
+      socket.emit("leave-call", roomId);
+      socket.disconnect(); // Close connection to prevent ghosting
+    }
     navigate("/dashboard");
   };
 
@@ -329,8 +495,10 @@ export default function RoomPage() {
       <MeetingControls
         isMuted={isMuted}
         isVideoOff={isVideoOff}
+        isSharingScreen={isSharingScreen}
         onToggleMute={toggleMute}
         onToggleVideo={toggleVideo}
+        onToggleScreenShare={handleToggleScreenShare}
         onLeave={leaveMeeting}
         onToggleChat={() => {
           setIsChatOpen(!isChatOpen);

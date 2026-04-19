@@ -11,15 +11,14 @@ export function SocketProvider({ children }) {
   const [socket, setSocket] = useState(null);
 
   useEffect(() => {
-    if (isAuthenticated && accessToken) {
+    if (isAuthenticated && accessToken && !socket) {
       const newSocket = io(SOCKET_URL, {
-        auth: {
-          token: accessToken
-        }
+        auth: { token: accessToken },
+        autoConnect: false // Don't connect until RoomPage is entered
       });
 
       newSocket.on("connect", () => {
-        console.log("Connected to Socket.io server:", newSocket.id);
+        console.log("On-Demand Socket Connected:", newSocket.id);
       });
 
       newSocket.on("connect_error", (err) => {
@@ -27,13 +26,15 @@ export function SocketProvider({ children }) {
       });
 
       setSocket(newSocket);
-
-      return () => {
-        newSocket.disconnect();
-        setSocket(null);
-      };
     }
-  }, [isAuthenticated, accessToken]);
+
+    return () => {
+      if (socket) {
+        socket.disconnect();
+        setSocket(null);
+      }
+    };
+  }, [isAuthenticated, accessToken, socket]);
 
   return (
     <SocketContext.Provider value={socket}>
