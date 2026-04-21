@@ -4,7 +4,7 @@ import { useAuth } from "./AuthContext";
 
 const SocketContext = createContext(null);
 
-const SOCKET_URL = import.meta.env.VITE_BACKEND_URL || "http://localhost:3000";
+const SOCKET_URL = import.meta.env.VITE_BACKEND_URL;
 
 export function SocketProvider({ children }) {
   const { accessToken, isAuthenticated } = useAuth();
