@@ -2,6 +2,12 @@ import express from "express";
 import { createServer } from "http";
 import cors from "cors";
 import dotenv from "dotenv";
+import { fileURLToPath } from "url";
+import path from "path";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 dotenv.config();
 
 import connectDB from "./config/db.js";
@@ -30,11 +36,10 @@ app.use("/api/meetings", meetingRoutes);
 app.get("/", (req, res) => {
     res.json({ message: "ZoomRTC API is running", version: "2.0.0" });
 });
-const path = require("path");
 
 app.use(express.static(path.join(__dirname, "client/build")));
 
-app.get("*", (req, res) => {
+app.use((req, res) => {
   res.sendFile(path.join(__dirname, "client/build", "index.html"));
 });
 // ─── Start Server ─────────────────────────────────
