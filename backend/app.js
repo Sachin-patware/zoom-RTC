@@ -30,7 +30,13 @@ app.use("/api/meetings", meetingRoutes);
 app.get("/", (req, res) => {
     res.json({ message: "ZoomRTC API is running", version: "2.0.0" });
 });
+const path = require("path");
 
+app.use(express.static(path.join(__dirname, "client/build")));
+
+app.get("*", (req, res) => {
+  res.sendFile(path.join(__dirname, "client/build", "index.html"));
+});
 // ─── Start Server ─────────────────────────────────
 const startServer = async () => {
     await connectDB();
