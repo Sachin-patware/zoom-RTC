@@ -5,11 +5,13 @@ import dotenv from "dotenv";
 import { fileURLToPath } from "url";
 import path from "path";
 
+dotenv.config();
+
+// Fix __dirname for ES Modules
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-dotenv.config();
-
+// Imports
 import connectDB from "./config/db.js";
 import authRoutes from "./Routes/auth.js";
 import meetingRoutes from "./Routes/meeting.js";
@@ -23,32 +25,42 @@ app.use(cors({
     origin: process.env.FRONTEND_URL,
     credentials: true
 }));
+
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // ─── Socket.io ────────────────────────────────────
-const io = initializeSocket(httpServer);
+initializeSocket(httpServer);
 
-// ─── Routes ───────────────────────────────────────
+// ─── API Routes ───────────────────────────────────
 app.use("/api/auth", authRoutes);
 app.use("/api/meetings", meetingRoutes);
 
-app.get("/", (req, res) => {
-    res.json({ message: "ZoomRTC API is running", version: "2.0.0" });
+// ─── Health Check ─────────────────────────────────
+app.get("/api", (req, res) => {
+    res.json({ message: "ZoomRTC API is running 🚀" });
 });
 
-app.use(express.static(path.join(__dirname, "client/build")));
+// ─── STATIC FRONTEND (VERY IMPORTANT) ─────────────
 
+// 🔥 CHANGE THIS BASED ON YOUR BUILD TOOL
+const frontendPath = path.join(__dirname, "client/dist"); // ✅ Vite
+// const frontendPath = path.join(__dirname, "client/build"); // ✅ CRA
+
+app.use(express.static(frontendPath));
+
+// ─── SPA FALLBACK (MOST IMPORTANT FIX) ─────────────
 app.use((req, res) => {
-  res.sendFile(path.join(__dirname, "client/build", "index.html"));
+    res.sendFile(path.join(frontendPath, "index.html"));
 });
+
 // ─── Start Server ─────────────────────────────────
 const startServer = async () => {
     await connectDB();
 
     const port = process.env.PORT || 3000;
     httpServer.listen(port, () => {
-        console.log(`🚀 Server running at http://localhost:${port}`);
+        console.log(`🚀 Server running on port ${port}`);
     });
 };
 
