@@ -36,15 +36,10 @@ initializeSocket(httpServer);
 app.use("/api/auth", authRoutes);
 app.use("/api/meetings", meetingRoutes);
 
-// ─── Health Check ─────────────────────────────────
-app.get("/api", (req, res) => {
-    res.json({ message: "ZoomRTC API is running 🚀" });
-});
-
 // ─── STATIC FRONTEND (VERY IMPORTANT) ─────────────
 
 // 🔥 CHANGE THIS BASED ON YOUR BUILD TOOL
-const frontendPath = path.join(__dirname, "client/dist"); // ✅ Vite
+const frontendPath = path.join(__dirname, "../frontend/dist");// ✅ Vite
 // const frontendPath = path.join(__dirname, "client/build"); // ✅ CRA
 
 app.use(express.static(frontendPath));
