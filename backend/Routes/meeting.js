@@ -50,6 +50,8 @@ router.get("/list/:user_id", async (req, res) => {
         console.error("Fetch meetings error:", error);
         res.status(500).json({ message: "Server error while fetching meetings" });
     }
+});
+
 // ─── Get Meeting Details ──────────────────────────
 router.get("/details/:meeting_id", async (req, res) => {
     try {

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate, Link } from "react-router-dom";
 import { useSocket } from "../context/SocketContext";
 import { useAuth } from "../context/AuthContext";
+import { apiRequest } from "../lib/api";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   Mic, MicOff, Video as VideoIcon, VideoOff, 

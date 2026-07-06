@@ -58,22 +58,34 @@ export default function DashboardPage() {
     }
   };
 
+  const handleStartInstantMeeting = () => {
+    const roomId = Math.random().toString(36).substring(2, 12);
+    navigate(`/room/${roomId}`);
+  };
+
   return (
     <div className="flex-1 p-8 max-w-7xl mx-auto w-full">
-      <div className="flex items-center justify-between mb-10">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mb-10">
         <div>
           <h1 className="text-3xl font-display font-bold tracking-tight mb-2">Dashboard</h1>
           <p className="text-muted-foreground">Welcome back, {user?.name || "User"}. You have {meetings.length} recent sessions.</p>
         </div>
-        <div className="flex gap-4">
+        <div className="flex flex-wrap gap-3">
+          <Button 
+            onClick={handleStartInstantMeeting}
+            className="glow-primary bg-gradient-to-r from-primary to-accent border-none font-semibold cursor-pointer" 
+            data-testid="btn-instant-dashboard"
+          >
+            <Video className="mr-2 h-4 w-4" /> Instant Meeting
+          </Button>
           <Link to="/join">
-            <Button variant="outline" className="border-white/10 glass-panel" data-testid="btn-join-dashboard">
-              <Video className="mr-2 h-4 w-4" /> Join
+            <Button variant="outline" className="border-white/10 glass-panel cursor-pointer" data-testid="btn-join-dashboard">
+              <Plus className="mr-2 h-4 w-4" /> Join with Code
             </Button>
           </Link>
           <Link to="/schedule">
-            <Button className="glow-primary" data-testid="btn-schedule-dashboard">
-              <Plus className="mr-2 h-4 w-4" /> Schedule
+            <Button variant="secondary" className="border-white/5 bg-white/5 hover:bg-white/10 cursor-pointer" data-testid="btn-schedule-dashboard">
+              <CalendarIcon className="mr-2 h-4 w-4" /> Schedule
             </Button>
           </Link>
         </div>
