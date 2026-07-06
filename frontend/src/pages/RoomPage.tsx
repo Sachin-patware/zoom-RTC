@@ -635,7 +635,14 @@ export default function RoomPage() {
 
   // Calculate grid layouts based on participant count
   const totalTiles = peers.length + 1;
-  const gridCols = totalTiles === 1 ? "grid-cols-1" : totalTiles === 2 ? "grid-cols-2" : totalTiles <= 4 ? "grid-cols-2" : "grid-cols-3";
+  const gridCols = 
+    totalTiles === 1 
+      ? "grid-cols-1" 
+      : totalTiles === 2 
+        ? "grid-cols-1 sm:grid-cols-2" 
+        : totalTiles <= 4 
+          ? "grid-cols-1 sm:grid-cols-2" 
+          : "grid-cols-2 lg:grid-cols-3 xl:grid-cols-4";
 
   return (
     <div className="fixed inset-0 bg-[#0a0a0a] flex flex-col overflow-hidden z-[100]">
@@ -725,11 +732,11 @@ export default function RoomPage() {
         <AnimatePresence>
           {sidebarActive && (
             <motion.div
-              initial={{ width: 0, opacity: 0, x: 20 }}
-              animate={{ width: 320, opacity: 1, x: 0 }}
-              exit={{ width: 0, opacity: 0, x: 20 }}
+              initial={{ x: "100%", opacity: 0 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: "100%", opacity: 0 }}
               transition={{ duration: 0.3, ease: "easeInOut" }}
-              className="h-full bg-zinc-950 border-l border-white/5 flex flex-col z-10 flex-shrink-0"
+              className="h-full bg-zinc-950 border-l border-white/5 flex flex-col z-50 fixed sm:relative right-0 top-0 bottom-0 w-full sm:w-80 shadow-2xl sm:shadow-none"
             >
               <div className="h-14 border-b border-white/5 flex items-center justify-between px-4">
                 <h3 className="font-medium text-sm">
@@ -807,18 +814,18 @@ export default function RoomPage() {
       </div>
 
       {/* Control Bar */}
-      <div className="absolute bottom-6 left-1/2 -translate-x-1/2 z-30">
-        <div className="bg-zinc-900/80 backdrop-blur-xl border border-white/10 p-2 rounded-2xl flex items-center gap-2 shadow-2xl">
+      <div className="absolute bottom-4 sm:bottom-6 left-1/2 -translate-x-1/2 z-30 w-[calc(100%-2rem)] sm:w-auto max-w-[420px] sm:max-w-none">
+        <div className="bg-zinc-900/85 backdrop-blur-xl border border-white/10 p-1.5 sm:p-2 rounded-2xl flex items-center justify-between sm:justify-center gap-1 sm:gap-2 shadow-2xl overflow-x-auto no-scrollbar">
           
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant={isMuted ? "destructive" : "secondary"}
                 size="icon" 
-                className={`h-12 w-12 rounded-xl transition-all duration-300 ${!isMuted ? 'bg-white/10 hover:bg-white/20' : ''}`}
+                className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl transition-all duration-300 shrink-0 ${!isMuted ? 'bg-white/10 hover:bg-white/20' : ''}`}
                 onClick={toggleMute}
               >
-                {isMuted ? <MicOff className="h-5 w-5" /> : <Mic className="h-5 w-5" />}
+                {isMuted ? <MicOff className="h-4.5 w-4.5 sm:h-5 sm:w-5" /> : <Mic className="h-4.5 w-4.5 sm:h-5 sm:w-5" />}
               </Button>
             </TooltipTrigger>
             <TooltipContent>Toggle Microphone</TooltipContent>
@@ -829,23 +836,24 @@ export default function RoomPage() {
               <Button 
                 variant={isVideoOff ? "destructive" : "secondary"}
                 size="icon" 
-                className={`h-12 w-12 rounded-xl transition-all duration-300 ${!isVideoOff ? 'bg-white/10 hover:bg-white/20' : ''}`}
+                className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl transition-all duration-300 shrink-0 ${!isVideoOff ? 'bg-white/10 hover:bg-white/20' : ''}`}
                 onClick={toggleVideo}
               >
-                {isVideoOff ? <VideoOff className="h-5 w-5" /> : <VideoIcon className="h-5 w-5" />}
+                {isVideoOff ? <VideoOff className="h-4.5 w-4.5 sm:h-5 sm:w-5" /> : <VideoIcon className="h-4.5 w-4.5 sm:h-5 sm:w-5" />}
               </Button>
             </TooltipTrigger>
             <TooltipContent>Toggle Camera</TooltipContent>
           </Tooltip>
 
-          <div className="w-px h-8 bg-white/10 mx-1"></div>
+          <div className="hidden sm:block w-px h-8 bg-white/10 mx-1 shrink-0"></div>
 
+          {/* Hide screen sharing on mobile since mobile browsers don't support tab/screen capture */}
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="secondary"
                 size="icon" 
-                className={`h-12 w-12 rounded-xl bg-white/5 hover:bg-white/15 transition-all duration-300 ${isScreenSharing ? 'text-primary bg-primary/20 hover:bg-primary/30' : ''}`}
+                className={`hidden sm:inline-flex h-12 w-12 rounded-xl bg-white/5 hover:bg-white/15 transition-all duration-300 shrink-0 ${isScreenSharing ? 'text-primary bg-primary/20 hover:bg-primary/30' : ''}`}
                 onClick={handleToggleScreenShare}
               >
                 <MonitorUp className="h-5 w-5" />
@@ -859,26 +867,26 @@ export default function RoomPage() {
               <Button 
                 variant="secondary"
                 size="icon" 
-                className={`h-12 w-12 rounded-xl bg-white/5 hover:bg-white/15 transition-all duration-300 ${isHandRaised ? 'text-amber-400 bg-amber-400/20 hover:bg-amber-400/30' : ''}`}
+                className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-white/5 hover:bg-white/15 transition-all duration-300 shrink-0 ${isHandRaised ? 'text-amber-400 bg-amber-400/20 hover:bg-amber-400/30' : ''}`}
                 onClick={() => setIsHandRaised(!isHandRaised)}
               >
-                <Hand className="h-5 w-5" />
+                <Hand className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Raise Hand</TooltipContent>
           </Tooltip>
 
-          <div className="w-px h-8 bg-white/10 mx-1"></div>
+          <div className="hidden sm:block w-px h-8 bg-white/10 mx-1 shrink-0"></div>
 
           <Tooltip>
             <TooltipTrigger asChild>
               <Button 
                 variant="secondary"
                 size="icon" 
-                className={`h-12 w-12 rounded-xl bg-white/5 hover:bg-white/15 transition-all duration-300 ${sidebarActive === 'people' ? 'bg-white/20 text-white' : ''}`}
+                className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-white/5 hover:bg-white/15 transition-all duration-300 shrink-0 ${sidebarActive === 'people' ? 'bg-white/20 text-white' : ''}`}
                 onClick={() => toggleSidebar('people')}
               >
-                <Users className="h-5 w-5" />
+                <Users className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Participants</TooltipContent>
@@ -889,11 +897,11 @@ export default function RoomPage() {
               <Button 
                 variant="secondary"
                 size="icon" 
-                className={`h-12 w-12 rounded-xl bg-white/5 hover:bg-white/15 relative transition-all duration-300 ${sidebarActive === 'chat' ? 'bg-white/20 text-white' : ''}`}
+                className={`h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-white/5 hover:bg-white/15 relative transition-all duration-300 shrink-0 ${sidebarActive === 'chat' ? 'bg-white/20 text-white' : ''}`}
                 onClick={() => toggleSidebar('chat')}
               >
-                <MessageSquare className="h-5 w-5" />
-                <span className="absolute top-2 right-2 h-2 w-2 rounded-full bg-primary ring-2 ring-zinc-900"></span>
+                <MessageSquare className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
+                <span className="absolute top-1.5 right-1.5 h-1.5 w-1.5 sm:top-2 sm:right-2 sm:h-2 sm:w-2 rounded-full bg-primary ring-2 ring-zinc-900"></span>
               </Button>
             </TooltipTrigger>
             <TooltipContent>Chat</TooltipContent>
@@ -904,22 +912,23 @@ export default function RoomPage() {
               <Button 
                 variant="secondary"
                 size="icon" 
-                className="h-12 w-12 rounded-xl bg-white/5 hover:bg-white/15"
+                className="h-10 w-10 sm:h-12 sm:w-12 rounded-xl bg-white/5 hover:bg-white/15 shrink-0"
               >
-                <Settings className="h-5 w-5" />
+                <Settings className="h-4.5 w-4.5 sm:h-5 sm:w-5" />
               </Button>
             </TooltipTrigger>
             <TooltipContent>Settings</TooltipContent>
           </Tooltip>
 
-          <div className="w-px h-8 bg-white/10 mx-1"></div>
+          <div className="hidden sm:block w-px h-8 bg-white/10 mx-1 shrink-0"></div>
 
           <Button 
             variant="destructive"
-            className="h-12 px-6 rounded-xl font-medium shadow-[0_0_15px_-3px_hsl(var(--destructive)/0.5)] hover:bg-red-600 transition-all duration-300"
+            className="h-10 px-3 sm:h-12 sm:px-6 rounded-xl font-medium shadow-[0_0_15px_-3px_hsl(var(--destructive)/0.5)] hover:bg-red-600 transition-all duration-300 shrink-0 flex items-center justify-center gap-1.5"
             onClick={leaveMeeting}
           >
-            <PhoneOff className="h-5 w-5 mr-2" /> Leave
+            <PhoneOff className="h-4 w-4 sm:h-5 sm:w-5" /> 
+            <span className="text-xs sm:text-sm font-semibold">Leave</span>
           </Button>
         </div>
       </div>
