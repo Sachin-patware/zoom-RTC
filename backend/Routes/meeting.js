@@ -6,7 +6,7 @@ const router = express.Router();
 // ─── Save Meeting ──────────────────────────────────
 router.post("/save", async (req, res) => {
     try {
-        const { user_id, meeting_id, label } = req.body;
+        const { user_id, meeting_id, label, meeting_time } = req.body;
 
         if (!user_id || !meeting_id) {
             return res.status(400).json({ message: "User ID and Meeting ID are required" });
@@ -15,7 +15,7 @@ router.post("/save", async (req, res) => {
         // Upsert logic: Update time if already exists for this user, otherwise create
         await Meeting.findOneAndUpdate(
             { user_id, meeting_id },
-            { label, meeting_time: new Date() },
+            { label, meeting_time: meeting_time ? new Date(meeting_time) : new Date() },
             { upsert: true, new: true }
         );
 

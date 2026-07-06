@@ -3,7 +3,7 @@ import { apiRequest } from "../lib/api";
 
 const AuthContext = createContext(null);
 
-const STORAGE_KEY = "zoomrtc_auth";
+const STORAGE_KEY = "syncmeet_auth";
 
 function readStoredSession() {
   if (typeof window === "undefined") {

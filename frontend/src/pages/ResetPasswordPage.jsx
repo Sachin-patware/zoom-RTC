@@ -120,7 +120,11 @@ export default function ResetPasswordPage() {
 
         {successMessage ? <div className="auth-success">{successMessage} Redirecting to login...</div> : null}
 
-        <button type="submit" disabled={loading || !isFormValid || Boolean(successMessage)} className="brand-button w-full">
+        <button 
+          type="submit" 
+          disabled={loading || !isFormValid || Boolean(successMessage)} 
+          className="w-full h-12 flex items-center justify-center gap-2 rounded-[14px] bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-all glow-primary disabled:opacity-50 cursor-pointer"
+        >
           {loading ? (
             <>
               <LoaderCircle size={18} className="animate-spin" />

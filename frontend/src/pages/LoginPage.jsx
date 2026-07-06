@@ -124,7 +124,7 @@ export default function LoginPage() {
       subtitle="Access your account with email and password or continue with Google."
       footer={
         <p className="text-sm text-slate-400">
-          New to ZoomRTC?
+          New to SyncMeet?
           <Link to="/signup" className="ml-2 font-bold text-indigo-300 hover:text-indigo-200">
             Create an account
           </Link>
@@ -182,7 +182,11 @@ export default function LoginPage() {
             }
           />
 
-          <button type="submit" disabled={loading || !isFormValid} className="brand-button w-full">
+          <button 
+            type="submit" 
+            disabled={loading || !isFormValid} 
+            className="w-full h-12 flex items-center justify-center gap-2 rounded-[14px] bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-all glow-primary disabled:opacity-50 cursor-pointer"
+          >
             {loading ? (
               <>
                 <LoaderCircle size={18} className="animate-spin" />

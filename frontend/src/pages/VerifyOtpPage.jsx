@@ -118,7 +118,12 @@ export default function VerifyOtpPage() {
           <Link to="/login" className="font-bold text-indigo-300 hover:text-indigo-200">
             Back to login
           </Link>
-          <button type="button" onClick={handleResend} disabled={resending} className="ghost-button !px-4 !py-2.5">
+          <button 
+            type="button" 
+            onClick={handleResend} 
+            disabled={resending} 
+            className="text-xs font-semibold text-primary hover:text-primary/80 transition-colors bg-white/5 border border-white/10 rounded-lg px-4 py-2 hover:bg-white/10 cursor-pointer disabled:opacity-50"
+          >
             {resending ? "Sending..." : "Resend OTP"}
           </button>
         </div>
@@ -143,7 +148,11 @@ export default function VerifyOtpPage() {
           }
         />
 
-        <button type="submit" disabled={loading || !isFormValid} className="brand-button w-full">
+        <button 
+          type="submit" 
+          disabled={loading || !isFormValid} 
+          className="w-full h-12 flex items-center justify-center gap-2 rounded-[14px] bg-primary text-primary-foreground font-bold hover:bg-primary/90 transition-all glow-primary disabled:opacity-50 cursor-pointer"
+        >
           {loading ? (
             <>
               <LoaderCircle size={18} className="animate-spin" />

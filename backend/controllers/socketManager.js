@@ -106,6 +106,14 @@ export const initializeSocket = (server) => {
             socket.to(path).emit("screen-share-stopped", socket.id);
         });
 
+        socket.on("start-recording", (path) => {
+            socket.to(path).emit("recording-started");
+        });
+
+        socket.on("stop-recording", (path) => {
+            socket.to(path).emit("recording-stopped");
+        });
+
         socket.on("chat-message", (data, sender) => {
             const { path, message } = data;
             if (!path) return;
