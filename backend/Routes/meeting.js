@@ -50,6 +50,20 @@ router.get("/list/:user_id", async (req, res) => {
         console.error("Fetch meetings error:", error);
         res.status(500).json({ message: "Server error while fetching meetings" });
     }
+// ─── Get Meeting Details ──────────────────────────
+router.get("/details/:meeting_id", async (req, res) => {
+    try {
+        const { meeting_id } = req.params;
+        const meeting = await Meeting.findOne({ meeting_id });
+        if (meeting) {
+            res.status(200).json(meeting);
+        } else {
+            res.status(404).json({ message: "Meeting not found" });
+        }
+    } catch (error) {
+        console.error("Fetch meeting details error:", error);
+        res.status(500).json({ message: "Server error while fetching details" });
+    }
 });
 
 export default router;

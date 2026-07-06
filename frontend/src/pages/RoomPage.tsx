@@ -95,6 +95,33 @@ export default function RoomPage() {
         socket.connect();
       }
 
+      // Save meeting to user's history when they join
+      const currentUserId = user?.id || user?._id;
+      if (currentUserId && roomId) {
+        try {
+          let label = "Instant Call";
+          try {
+            const details = await apiRequest(`/meetings/details/${roomId}`);
+            if (details && details.label) {
+              label = details.label;
+            }
+          } catch {
+            // Meeting details not found (e.g. instant call), default to "Instant Call"
+          }
+          
+          await apiRequest("/meetings/save", {
+            method: "POST",
+            body: {
+              user_id: currentUserId,
+              meeting_id: roomId,
+              label
+            }
+          });
+        } catch (err) {
+          console.error("Failed to save meeting to history:", err);
+        }
+      }
+
       try {
         let localStream = streamRef.current;
         if (!localStream) {
